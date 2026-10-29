@@ -9,10 +9,12 @@ import time
 from datetime import datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, State, callback
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import ExtraStoredData, RestoreEntity
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
@@ -55,6 +57,24 @@ class MobileAlertesBaseCoordinator(DataUpdateCoordinator):
         self._gateway_ip: str | None = gateway.ip_address
         self._proxy.set_handler(self)
         self._entities: dict[Measurement, MobileAlertesEntity] = {}
+        self._add_entities_callbacks: dict[Platform, AddEntitiesCallback] = {}
+
+    @callback
+    def register_add_entities(
+        self, platform: Platform, add_entities: AddEntitiesCallback
+    ) -> None:
+        """Record a platform's async_add_entities callback.
+
+        Lets sensor_added() hand newly discovered sensors to the right
+        platform without reaching into hass.data[Platform.*]._platforms,
+        which is a private Home Assistant implementation detail.
+        """
+        self._add_entities_callbacks[platform] = add_entities
+
+    @callback
+    def unregister_add_entities(self, platform: Platform) -> None:
+        """Forget a platform's async_add_entities callback (e.g. on unload)."""
+        self._add_entities_callbacks.pop(platform, None)
 
     async def async_get_or_create_gateway_device(self) -> None:         
         _id = self._gateway.gateway_id

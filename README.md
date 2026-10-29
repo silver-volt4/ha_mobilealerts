@@ -16,6 +16,12 @@ However, I'd still like this repository to be *the* updated fork of the integrat
 
 If you'd like to see something added and think you can code it yourself, please feel free to submit a PR! For as long as I have access to Mobile-Alerts sensors, I'll review and merge your code.
 
+## MQTT gateway mode
+
+By default this integration creates native Home Assistant entities for each sensor. It can instead run as an MQTT gateway: readings are published as sarnau/MMMMobileAlerts-compatible JSON to `<prefix><sensor_id>/json` (default prefix `/MobileAlerts/`), so anyone already running a standalone maserver-style bridge can retire that external process and point their existing `mqtt:` sensor configuration at this integration instead, with no changes to their templates.
+
+Select the mode from the integration's options (gear icon on the integration card, or **Settings > Devices & Services > Mobile-Alerts > Configure**). Changing it reloads the integration. The two modes are mutually exclusive per gateway: a gateway publishes either native entities or MQTT, not both, though you can run entities on one gateway and MQTT on another if you have more than one.
+
 ## Installation
 
 Place the `custom_components` folder in your configuration directory (or add its contents to an existing `custom_components` folder). Alternatively install via [HACS](https://hacs.xyz/).
