@@ -55,6 +55,12 @@ class MobileAlertesBaseCoordinator(DataUpdateCoordinator):
         self._gateway_ip: str | None = gateway.ip_address
         self._proxy.set_handler(self)
         self._entities: dict[Measurement, MobileAlertesEntity] = {}
+        self._gateway_device_id: str | None = None
+
+    @property
+    def gateway_device_id(self) -> str | None:
+        """Device registry id of the gateway device, once created."""
+        return self._gateway_device_id
 
     async def async_get_or_create_gateway_device(self) -> None:         
         _id = self._gateway.gateway_id
@@ -71,6 +77,7 @@ class MobileAlertesBaseCoordinator(DataUpdateCoordinator):
             manufacturer=MANUFACTURER,
             hw_version=self._gateway.version,
         )
+        self._gateway_device_id = device_entry.id
         _LOGGER.debug("async_get_or_create_gateway_device device: %s", device_entry)
 
     async def _async_update_data(self):
@@ -168,8 +175,15 @@ class MobileAlertesEntity(CoordinatorEntity, RestoreEntity):
             manufacturer=MANUFACTURER,
             model=self._sensor.model,
             name=self._sensor.name,
-            via_device=(DOMAIN, self._sensor.parent.gateway_id),
         )
+        gateway_device_id = self._coordinator.gateway_device_id
+        if gateway_device_id is not None:
+            device_info["via_device_id"] = gateway_device_id
+        else:
+            # Gateway device not registered yet (shouldn't normally happen,
+            # since it's created before entities are set up) -- fall back
+            # to the deprecated identifier tuple rather than drop the link.
+            device_info["via_device"] = (DOMAIN, self._sensor.parent.gateway_id)
 
         area_registry = ar.async_get(self.hass)
         if area_registry.async_get_area_by_name(self._sensor.name):
