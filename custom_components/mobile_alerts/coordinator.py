@@ -23,27 +23,17 @@ class MobileAlertesDataCoordinator(MobileAlertesBaseCoordinator, SensorHandler):
     async def sensor_added(self, sensor: Sensor) -> None:
         _LOGGER.debug("sensor_added %r", sensor)
 
-        binary_entity_component = self.hass.data[Platform.BINARY_SENSOR]
-        binary_entity_platform = binary_entity_component._platforms.get(
-            self._entry.entry_id, None
-        )
-        if binary_entity_platform is not None:
-            self.hass.async_add_job(
-                binary_entity_platform.async_add_entities(
-                    create_binary_sensor_entities(self, sensor), True
-                )
-            )
+        binary_add_entities = self._add_entities_callbacks.get(Platform.BINARY_SENSOR)
+        if binary_add_entities is not None:
+            binary_entities = create_binary_sensor_entities(self, sensor)
+            binary_add_entities(binary_entities, True)
+            self.add_entities(binary_entities)
 
-        sensor_entity_component = self.hass.data[Platform.SENSOR]
-        sensor_entity_platform = sensor_entity_component._platforms.get(
-            self._entry.entry_id, None
-        )
-        if sensor_entity_platform is not None:
-            self.hass.async_add_job(
-                sensor_entity_platform.async_add_entities(
-                    create_sensor_entities(self, sensor), True
-                )
-            )
+        sensor_add_entities = self._add_entities_callbacks.get(Platform.SENSOR)
+        if sensor_add_entities is not None:
+            sensor_entities = create_sensor_entities(self, sensor)
+            sensor_add_entities(sensor_entities, True)
+            self.add_entities(sensor_entities)
 
         self.hass.config_entries.async_update_entry(self._entry)
 

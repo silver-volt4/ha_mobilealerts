@@ -16,9 +16,9 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
-    CONCENTRATION_PARTS_PER_MILLION,
     DEGREE,
     PERCENTAGE,
+    Platform,
     UnitOfLength,
     UnitOfPressure,
     UnitOfSpeed,
@@ -44,6 +44,17 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# CONCENTRATION_PARTS_PER_MILLION is deprecated (removal in HA Core 2027.8) in favour
+# of UnitOfRatio.PARTS_PER_MILLION. Both are the string "ppm", so statistics are
+# unaffected. UnitOfRatio does not exist in older Home Assistant releases, hence
+# the fallback.
+try:
+    from homeassistant.const import UnitOfRatio
+
+    _UNIT_PPM = UnitOfRatio.PARTS_PER_MILLION
+except ImportError:
+    from homeassistant.const import CONCENTRATION_PARTS_PER_MILLION as _UNIT_PPM
+
 
 gateway_descriptions: list[tuple[SensorEntityDescription, Callable[[Gateway], str]]] = [
     (
@@ -53,8 +64,8 @@ gateway_descriptions: list[tuple[SensorEntityDescription, Callable[[Gateway], st
             entity_category=EntityCategory.DIAGNOSTIC,
         ),
         lambda gateway: ("http://%s:%s") % (
-            gateway.orig_proxy,
-            gateway.orig_proxy_port,
+            gateway.proxy,
+            gateway.proxy_port,
         ),
     ),
 ]
@@ -84,21 +95,25 @@ descriptions: dict[MeasurementType, SensorEntityDescription] = {
     MeasurementType.TEMPERATURE: SensorEntityDescription(
         key=None,
         device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
     ),
     MeasurementType.HUMIDITY: SensorEntityDescription(
         key=None,
         device_class=SensorDeviceClass.HUMIDITY,
+        state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=PERCENTAGE,
     ),
     MeasurementType.CO2: SensorEntityDescription(
         key=None,
         device_class=SensorDeviceClass.CO2,
-        native_unit_of_measurement=CONCENTRATION_PARTS_PER_MILLION,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=_UNIT_PPM,
     ),
     MeasurementType.AIR_PRESSURE: SensorEntityDescription(
         key=None,
         device_class=SensorDeviceClass.PRESSURE,
+        state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfPressure.HPA,
     ),
     MeasurementType.RAIN: SensorEntityDescription(
@@ -117,12 +132,14 @@ descriptions: dict[MeasurementType, SensorEntityDescription] = {
         key=None,
         icon="mdi:weather-windy",
         device_class=SensorDeviceClass.WIND_SPEED,
+        state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfSpeed.METERS_PER_SECOND,
     ),
     MeasurementType.GUST: SensorEntityDescription(
         key=None,
         icon="mdi:weather-windy",
         device_class=SensorDeviceClass.WIND_SPEED,
+        state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfSpeed.METERS_PER_SECOND,
     ),
     MeasurementType.WIND_DIRECTION: SensorEntityDescription(
@@ -425,6 +442,7 @@ async def async_setup_entry(
     _LOGGER.debug("async_setup_entry %s", entry)
 
     coordinator: MobileAlertesBaseCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator.register_add_entities(Platform.SENSOR, async_add_entities)
     async_add_entities(create_gateway_sensor_entities(coordinator.gateway))
 
     sensors: list[Sensor] = coordinator.gateway.sensors
